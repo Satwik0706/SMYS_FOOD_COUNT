@@ -49,26 +49,25 @@ class LockAutomationWorker(
         val minute = now[Calendar.MINUTE]
         val m = hour * 60 + minute
 
-        // LOGIC REWRITE: Atomic Field Comparison
-        // This ensures Snack is NEVER touched by automation.
+        // 100% RELIABLE STATE-BASED LOGIC:
+        // Instead of narrow windows, we define the "Correct State" for any given minute of the day.
         
-        // 5:00 AM (300) to 8:00 PM (1200) -> Breakfast should be LOCKED
-        val targetB = m in 300..1199
-        // 9:00 AM (540) to 8:00 PM (1200) -> Lunch should be LOCKED
-        val targetL = m in 540..1199
-        // 4:30 PM (990) to 8:00 PM (1200) -> Dinner should be LOCKED
-        val targetD = m in 990..1199
+        // Is it the Reset/Unlock period? (8:00 PM to 5:00 AM)
+        val isResetPeriod = m >= 1200 || m < 300
         
-        // Portal Unlock at 8:00 PM (1200)
-        if (m in 1200..1205) {
+        // Define Target States based on the current minute
+        val targetB = !isResetPeriod && m >= 300 // Lock B from 5 AM to 8 PM
+        val targetL = !isResetPeriod && m >= 540 // Lock L from 9 AM to 8 PM
+        val targetD = !isResetPeriod && m >= 990 // Lock D from 4:30 PM to 8 PM
+        
+        // Universal Unlock Logic (Covers the entire 8 PM to 5 AM period)
+        if (isResetPeriod) {
             if (currentLock.locked) repository.updateSingleLock("locked", false)
             if (currentLock.breakfastLocked) repository.updateSingleLock("breakfastLocked", false)
             if (currentLock.lunchLocked) repository.updateSingleLock("lunchLocked", false)
             if (currentLock.dinnerLocked) repository.updateSingleLock("dinnerLocked", false)
-        }
-
-        // Apply state-based locking
-        if (m < 1200) {
+        } else {
+            // Daytime Locking Logic: Apply targets only if they differ from current state
             if (currentLock.breakfastLocked != targetB) {
                 repository.updateSingleLock("breakfastLocked", targetB)
             }

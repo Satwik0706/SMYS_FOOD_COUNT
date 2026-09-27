@@ -2,6 +2,7 @@ package com.satwik.oodapplication.domain.repository
 
 import com.satwik.oodapplication.data.model.AuditLog
 import com.satwik.oodapplication.data.model.FoodCount
+import com.satwik.oodapplication.data.model.FoodRequest
 import com.satwik.oodapplication.data.model.LockStatus
 import com.satwik.oodapplication.utils.Resource
 import kotlinx.coroutines.flow.Flow
@@ -23,4 +24,12 @@ interface FoodCountRepository {
     suspend fun clearOldLogs(beforeTimestamp: Long)
     suspend fun resetAllFoodCounts(date: String): Resource<Unit>
     suspend fun resetSpecificMeal(date: String, mealType: String): Resource<Unit>
+
+    // Missed Count Requests
+    suspend fun submitFoodRequest(request: FoodRequest): Resource<Unit>
+    fun getPendingRequests(): Flow<Resource<List<FoodRequest>>>
+    fun getStudentRequest(studentId: String, date: String): Flow<Resource<FoodRequest?>>
+    suspend fun updateRequestStatus(requestId: String, status: String, adminNote: String? = null): Resource<Unit>
+    suspend fun getAdminWhatsAppNumber(): Resource<String>
+    suspend fun updateAdminWhatsAppNumber(number: String): Resource<Unit>
 }

@@ -112,7 +112,7 @@ fun ManagerDashboardScreen(
             visible = visible,
             enter = fadeIn() + slideInVertically(initialOffsetY = { 30 })
         ) {
-            Box(modifier = Modifier.padding(padding)) {
+            Box(modifier = Modifier.padding(padding).navigationBarsPadding()) {
                 when (selectedTab) {
                     0 -> InsightsTab(stats, onNavigateToStudents = { selectedTab = 1 })
                     1 -> SecurityTab(

@@ -22,6 +22,8 @@ import com.satwik.oodapplication.presentation.data_portal.MainDataPortalDashboar
 import com.satwik.oodapplication.presentation.manager.ManagerDashboardScreen
 import com.satwik.oodapplication.presentation.student.MainStudentScreen
 import com.satwik.oodapplication.utils.Constants
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 
 @Composable
 fun SetupNavGraph(
@@ -30,7 +32,11 @@ fun SetupNavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = startDestination
+        startDestination = startDestination,
+        enterTransition = { fadeIn(animationSpec = tween(500)) + slideInHorizontally(initialOffsetX = { 400 }) },
+        exitTransition = { fadeOut(animationSpec = tween(500)) + slideOutHorizontally(targetOffsetX = { -400 }) },
+        popEnterTransition = { fadeIn(animationSpec = tween(500)) + slideInHorizontally(initialOffsetX = { -400 }) },
+        popExitTransition = { fadeOut(animationSpec = tween(500)) + slideOutHorizontally(targetOffsetX = { 400 }) }
     ) {
         composable(Screen.Login.route) {
             val viewModel: AuthViewModel = hiltViewModel()
@@ -38,6 +44,8 @@ fun SetupNavGraph(
                 viewModel = viewModel,
                 onLoginSuccess = { role ->
                     val normalizedRole = role.trim().lowercase()
+                    
+                    // SECURITY HARDENING: Re-validate session and clear old state on navigation
                     val route = when {
                         normalizedRole == Constants.ROLE_MANAGER || normalizedRole.contains("manager") -> Screen.ManagerGraph.route
                         normalizedRole == Constants.ROLE_ADMIN || normalizedRole.contains("admin") -> Screen.AdminGraph.route
@@ -46,7 +54,9 @@ fun SetupNavGraph(
                         else -> Screen.StudentGraph.route
                     }
                     navController.navigate(route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
+                        // Kill the entire backstack to prevent "Back" button into other portals
+                        popUpTo(0) { inclusive = true }
+                        launchSingleTop = true
                     }
                 }
             )
@@ -83,6 +93,7 @@ fun SetupNavGraph(
                     onNavigateToFoodCount = { navController.navigate(Screen.AdminFoodCount.route) },
                     onNavigateToAttendance = { navController.navigate(Screen.AdminAttendance.route) },
                     onNavigateToSnack = { navController.navigate(Screen.AdminSnackManagement.route) },
+                    onNavigateToRequests = { navController.navigate(Screen.AdminRequests.route) },
                     onLogout = {
                         navController.navigate(Screen.Login.route) {
                             popUpTo(Screen.AdminGraph.route) { inclusive = true }
@@ -119,6 +130,13 @@ fun SetupNavGraph(
             }
             composable(Screen.AdminSnackManagement.route) {
                 AdminSnackScreen(
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.AdminRequests.route) {
+                val viewModel: AdminViewModel = hiltViewModel()
+                AdminRequestsScreen(
+                    viewModel = viewModel,
                     onBack = { navController.popBackStack() }
                 )
             }

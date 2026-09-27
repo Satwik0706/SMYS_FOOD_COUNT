@@ -45,7 +45,7 @@ fun AdminNotificationsScreen(
             }
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).padding(16.dp)) {
+        Column(modifier = Modifier.padding(padding).navigationBarsPadding().padding(16.dp)) {
             Text("Notifications History", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(16.dp))
 

@@ -20,25 +20,38 @@ fun StudentNotificationsScreen(
 ) {
     val notificationState by viewModel.notifications.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("All Notifications", style = MaterialTheme.typography.headlineMedium)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp)
+    ) {
         Spacer(modifier = Modifier.height(16.dp))
+        SectionHeader("Notifications", "Mess announcements and alerts")
+        Spacer(modifier = Modifier.height(8.dp))
 
         when (val state = notificationState) {
             is Resource.Loading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(strokeWidth = 3.dp)
             }
-            is Resource.Error -> Text("Error: ${state.message}")
+            is Resource.Error -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
+            }
             is Resource.Success -> {
                 val list = state.data?.filter { it.targetYear == "All" || it.targetYear == studentYear } ?: emptyList()
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(list) { notification ->
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(notification.title, style = MaterialTheme.typography.titleMedium)
-                                Text(notification.body, style = MaterialTheme.typography.bodyMedium)
-                            }
+                
+                if (list.isNotEmpty()) {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(bottom = 24.dp)
+                    ) {
+                        items(list.sortedByDescending { it.timestamp }) { notification ->
+                            AnnouncementCard(notification)
                         }
+                    }
+                } else {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No notifications yet.", color = MaterialTheme.colorScheme.outline)
                     }
                 }
             }

@@ -25,6 +25,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.satwik.oodapplication.presentation.common.components.shimmerModifier
+import com.satwik.oodapplication.ui.theme.DinnerColor
 import com.satwik.oodapplication.ui.theme.SuccessGreen
 import com.satwik.oodapplication.utils.Resource
 
@@ -57,6 +59,7 @@ fun AdminFoodCountScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .navigationBarsPadding()
                 .padding(16.dp)
         ) {
             // Date Header
@@ -83,8 +86,13 @@ fun AdminFoodCountScreen(
 
             when (val resource = reportResource) {
                 is Resource.Loading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(modifier = Modifier.weight(1f).height(80.dp).shimmerModifier())
+                            Box(modifier = Modifier.weight(1f).height(80.dp).shimmerModifier())
+                        }
+                        Box(modifier = Modifier.fillMaxWidth().height(80.dp).shimmerModifier())
+                        Box(modifier = Modifier.fillMaxWidth().height(200.dp).shimmerModifier())
                     }
                 }
                 is Resource.Success -> {
@@ -119,7 +127,7 @@ fun ReportContent(report: FoodCountReport, showBatchBreakdown: Boolean = true) {
             Spacer(modifier = Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TotalCard("Evening (S)", report.totalSnack, MaterialTheme.colorScheme.tertiaryContainer, Modifier.weight(1f))
-                TotalCard("Night (D)", report.totalDinner, Color(0xFFFFE082), Modifier.weight(1f))
+                TotalCard("Night (D)", report.totalDinner, DinnerColor, Modifier.weight(1f))
             }
             Spacer(modifier = Modifier.height(8.dp))
             TotalCard("Students On Leave / Unavailable", report.totalOnLeave, MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f), Modifier.fillMaxWidth())
@@ -142,27 +150,28 @@ fun ReportContent(report: FoodCountReport, showBatchBreakdown: Boolean = true) {
 
 @Composable
 fun TotalCard(label: String, count: Int, color: Color, modifier: Modifier = Modifier) {
-    OutlinedCard(
+    Surface(
         modifier = modifier,
-        colors = CardDefaults.outlinedCardColors(containerColor = color.copy(alpha = 0.8f)),
-        shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.outline)
+        color = color.copy(alpha = 0.9f),
+        shape = RoundedCornerShape(20.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+        shadowElevation = 2.dp
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 count.toString(), 
-                style = MaterialTheme.typography.headlineMedium, 
-                fontWeight = FontWeight.ExtraBold,
+                style = MaterialTheme.typography.headlineLarge, 
+                fontWeight = FontWeight.Black,
                 color = if (color.luminance() > 0.5f) Color.Black else Color.White
             )
             Text(
                 label, 
-                style = MaterialTheme.typography.labelMedium, 
+                style = MaterialTheme.typography.labelSmall, 
                 fontWeight = FontWeight.Bold,
-                color = if (color.luminance() > 0.5f) Color.Black else Color.White
+                color = (if (color.luminance() > 0.5f) Color.Black else Color.White).copy(alpha = 0.8f)
             )
         }
     }

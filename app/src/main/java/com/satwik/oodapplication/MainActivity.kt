@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -21,7 +22,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.compose.rememberNavController
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.satwik.oodapplication.presentation.auth.AuthViewModel
 import com.satwik.oodapplication.presentation.common.Screen
 import com.satwik.oodapplication.presentation.common.SetupNavGraph
@@ -49,6 +52,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
@@ -71,8 +75,26 @@ class MainActivity : ComponentActivity() {
                     val updateUrl by authViewModel.updateUrl.collectAsState()
                     val userSession by authViewModel.userSession.collectAsState()
                     val navController = rememberNavController()
+                    val context = LocalContext.current
                     
-                    if (isUpdateRequired) {
+                    var showTermsDialog by remember {
+                        mutableStateOf(
+                            !context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                                .getBoolean(Constants.PREF_TERMS_ACCEPTED, false)
+                        )
+                    }
+
+                    if (showTermsDialog) {
+                        TermsAndConditionsDialog(
+                            onAccept = {
+                                context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                                    .edit()
+                                    .putBoolean(Constants.PREF_TERMS_ACCEPTED, true)
+                                    .apply()
+                                showTermsDialog = false
+                            }
+                        )
+                    } else if (isUpdateRequired) {
                         ForceUpdateScreen(updateUrl = updateUrl)
                     } else {
                         val startDestination = if (userSession != null) {
@@ -100,10 +122,68 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
+fun TermsAndConditionsDialog(onAccept: () -> Unit) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = { /* Cannot dismiss without accepting */ },
+        confirmButton = {
+            Button(
+                onClick = onAccept,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Agree and Continue", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = {
+                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(Constants.PRIVACY_POLICY_URL))
+                    context.startActivity(intent)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Read Full Privacy Policy", color = MaterialTheme.colorScheme.primary)
+            }
+        },
+        title = { 
+            Text(
+                "Terms & Conditions", 
+                fontWeight = FontWeight.ExtraBold,
+                style = MaterialTheme.typography.titleLarge
+            ) 
+        },
+        text = {
+            Column {
+                Text(
+                    "Welcome to SMYS Food Count Portal. To provide you with a seamless experience, we collect your food preferences and attendance data. This information is used exclusively for mess management and student identification.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    "By clicking 'Agree and Continue', you confirm that you have read and understood our Privacy Policy.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+            }
+        },
+        shape = RoundedCornerShape(28.dp),
+        properties = androidx.compose.ui.window.DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        )
+    )
+}
+
+@Composable
 fun ForceUpdateScreen(updateUrl: String) {
     val context = LocalContext.current
     Box(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .systemBarsPadding()
+            .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -118,13 +198,13 @@ fun ForceUpdateScreen(updateUrl: String) {
             )
             Spacer(modifier = Modifier.height(24.dp))
             Text(
-                "Update Required",
+                stringResource(R.string.update_required),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                "A new version of the app is available. Please update to continue using the service.",
+                stringResource(R.string.update_message),
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
@@ -140,7 +220,7 @@ fun ForceUpdateScreen(updateUrl: String) {
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Text("Update Now", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.update_now), fontWeight = FontWeight.Bold)
             }
         }
     }

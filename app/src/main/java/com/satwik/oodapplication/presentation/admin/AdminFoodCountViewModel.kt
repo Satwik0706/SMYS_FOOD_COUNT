@@ -96,13 +96,10 @@ class AdminFoodCountViewModel @Inject constructor(
                             currentBatch.onLeave++
                         } else {
                             if (finalB) { totalB++; currentBatch.breakfast++ }
+                            if (finalLB) { totalB++; currentBatch.breakfast++ } // Extra portion for lunch box
                             if (finalL) { totalL++; currentBatch.lunch++ }
                             if (finalS) { totalS++; currentBatch.snack++ }
                             if (finalD) { totalD++; currentBatch.dinner++ }
-                            
-                            // Note: We removed the double-counting for lunchBox here to prevent 
-                            // the "Ghost Increment" confusion. The Breakfast column shows if they 
-                            // take a morning portion, which includes the lunch box user.
                         }
                         
                         currentBatch.students.add(

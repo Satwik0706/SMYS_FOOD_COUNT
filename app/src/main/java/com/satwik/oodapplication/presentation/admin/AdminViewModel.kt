@@ -2,6 +2,7 @@ package com.satwik.oodapplication.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.satwik.oodapplication.data.model.FoodRequest
 import com.satwik.oodapplication.data.model.LockStatus
 import com.satwik.oodapplication.data.model.User
 import com.satwik.oodapplication.domain.repository.AuthRepository
@@ -42,14 +43,20 @@ class AdminViewModel @Inject constructor(
                 
                 students.forEach { student ->
                     val daily = countsMap[student.uid]
-                    val onLeave = daily?.isOnLeave ?: student.isLeave
+                    
+                    // UNIFIED LOGIC: Match the calculation used in the detailed report
+                    val onLeave = daily?.isLeave ?: student.isLeave
                     
                     if (!onLeave) {
-                        val isEating = daily?.let {
-                            it.isBreakfast || it.isLunch || it.isSnack || it.isDinner || it.isLunchBox 
-                        } ?: (student.breakfastPref || student.lunchPref || student.snackPref || student.dinnerPref)
+                        val breakfast = daily?.breakfast ?: student.breakfastPref
+                        val lunch = daily?.lunch ?: student.lunchPref
+                        val snack = daily?.snack ?: student.snackPref
+                        val dinner = daily?.dinner ?: student.dinnerPref
+                        val lunchBox = daily?.lunchBox ?: false
                         
-                        if (isEating) totalEating++
+                        if (breakfast || lunch || snack || dinner || lunchBox) {
+                            totalEating++
+                        }
                     }
                 }
                 
@@ -66,8 +73,46 @@ class AdminViewModel @Inject constructor(
     val allStudents: StateFlow<List<User>> = authRepository.getUsersByRole(Constants.ROLE_STUDENT)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val pendingRequests: StateFlow<Resource<List<FoodRequest>>> = foodCountRepository.getPendingRequests()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
+
+    private val _adminWhatsApp = MutableStateFlow<Resource<String>>(Resource.Loading())
+    val adminWhatsApp: StateFlow<Resource<String>> = _adminWhatsApp
+
     init {
         loadLockStatus()
+        loadAdminContact()
+    }
+
+    private fun loadAdminContact() {
+        viewModelScope.launch {
+            _adminWhatsApp.value = foodCountRepository.getAdminWhatsAppNumber()
+        }
+    }
+
+    fun updateWhatsAppNumber(number: String) {
+        viewModelScope.launch {
+            foodCountRepository.updateAdminWhatsAppNumber(number)
+            _adminWhatsApp.value = Resource.Success(number)
+        }
+    }
+
+    fun approveRequest(requestId: String) {
+        viewModelScope.launch {
+            foodCountRepository.updateRequestStatus(requestId, "APPROVED")
+            authRepository.getSession()?.let { admin ->
+                authRepository.logAction(admin, "Approved missed count request: $requestId")
+            }
+        }
+    }
+
+    fun rejectRequest(requestId: String, reason: String) {
+        viewModelScope.launch {
+            foodCountRepository.updateRequestStatus(requestId, "REJECTED", reason)
+            authRepository.getSession()?.let { admin ->
+                authRepository.logAction(admin, "Rejected missed count request: $requestId")
+            }
+        }
     }
 
     private fun loadLockStatus() {

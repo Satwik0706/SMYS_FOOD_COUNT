@@ -13,13 +13,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,6 +68,7 @@ fun MenuManagementScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .navigationBarsPadding()
                 .padding(horizontal = 20.dp)
         ) {
             // Day Navigation
@@ -144,10 +146,10 @@ fun MenuManagementScreen(
                     val dinnerInfo = menu.dinner.let { if (it.timing.isBlank()) it.copy(timing = "7:40 pm onwards") else it }
 
                     val meals = listOf(
-                        MealData("Breakfast", breakfastInfo, BreakfastColor, Icons.Default.Edit),
-                        MealData("Lunch", lunchInfo, LunchColor, Icons.Default.Edit),
-                        MealData("Snack", snackInfo, SnackColor, Icons.Default.Edit),
-                        MealData("Dinner", dinnerInfo, DinnerColor, Icons.Default.Edit)
+                        MealData("Breakfast", breakfastInfo, BreakfastColor, Icons.Default.BakeryDining),
+                        MealData("Lunch", lunchInfo, LunchColor, Icons.Default.Restaurant),
+                        MealData("Snack", snackInfo, SnackColor, Icons.Default.Fastfood),
+                        MealData("Dinner", dinnerInfo, DinnerColor, Icons.Default.DinnerDining)
                     )
 
                     LazyVerticalGrid(
@@ -186,42 +188,90 @@ fun MenuManagementScreen(
 
 @Composable
 fun AdminMealCard(meal: MealData, onClick: () -> Unit) {
-    OutlinedCard(
+    Card(
+        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .height(200.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(2.dp, Color.Black)
+            .heightIn(min = 180.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Surface(
-                color = meal.color.copy(alpha = 0.9f),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.size(36.dp)
+        Column {
+            // Header Strip
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .background(meal.color.copy(alpha = 0.1f))
+                    .padding(horizontal = 16.dp),
+                contentAlignment = Alignment.CenterStart
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(meal.name.take(1), fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            color = meal.color,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(meal.icon, null, modifier = Modifier.size(16.dp), tint = Color.White)
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(meal.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                    Icon(Icons.Default.Edit, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(meal.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
-            Text(
-                meal.info.timing, 
-                style = MaterialTheme.typography.labelSmall, 
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                if (meal.info.items.all { it.isBlank() }) "Not set" else meal.info.items.joinToString(", "),
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 3,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                lineHeight = 16.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
+            
+            Column(modifier = Modifier.padding(16.dp)) {
+                Surface(
+                    color = meal.color.copy(alpha = 0.05f),
+                    shape = RoundedCornerShape(6.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, meal.color.copy(alpha = 0.2f))
+                ) {
+                    Text(
+                        meal.info.timing, 
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall, 
+                        fontWeight = FontWeight.Bold,
+                        color = meal.color
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                val items = if (meal.info.items.all { it.isBlank() }) emptyList() else meal.info.items
+                if (items.isEmpty()) {
+                    Text("No menu items set", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items.take(4).forEach { item ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(modifier = Modifier.size(3.dp).background(meal.color, CircleShape))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    item,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1,
+                                    fontWeight = FontWeight.Medium,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                        if (items.size > 4) {
+                            Text("+ ${items.size - 4} more...", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(start = 12.dp))
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
     }
 }

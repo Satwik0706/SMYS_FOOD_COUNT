@@ -52,6 +52,7 @@ fun AdminSnackScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .navigationBarsPadding()
                 .padding(16.dp)
         ) {
             // Lock Control Card

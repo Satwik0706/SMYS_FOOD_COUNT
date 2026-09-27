@@ -5,29 +5,34 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.google.services)
+    alias(libs.plugins.googleFirebaseCrashlytics)
 }
 
 android {
     namespace = "com.satwik.oodapplication"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.satwik.oodapplication"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 3
-        versionName = "1.2"
+        targetSdk = 36
+        versionCode = 17
+        versionName = "2.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            ndk {
+                debugSymbolLevel = "full"
+            }
         }
     }
     compileOptions {
@@ -41,6 +46,10 @@ android {
         compose = true
         buildConfig = true
     }
+
+    androidResources {
+        localeFilters += listOf("en", "en-rIN")
+    }
 }
 
 dependencies {
@@ -53,6 +62,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.splashscreen)
     
     // Hilt
     implementation(libs.hilt.android)
@@ -84,6 +94,8 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.messaging)
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.crashlytics)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

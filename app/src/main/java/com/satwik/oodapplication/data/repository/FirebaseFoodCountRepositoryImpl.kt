@@ -4,6 +4,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.satwik.oodapplication.data.model.AuditLog
 import com.satwik.oodapplication.data.model.FoodCount
+import com.satwik.oodapplication.data.model.FoodRequest
 import com.satwik.oodapplication.data.model.LockStatus
 import com.satwik.oodapplication.data.model.User
 import com.satwik.oodapplication.domain.repository.FoodCountRepository
@@ -40,10 +41,10 @@ class FirebaseFoodCountRepositoryImpl @Inject constructor(
                 FoodCount(
                     studentId = studentId,
                     date = date,
-                    breakfast = daily.breakfast ?: u?.breakfastPref,
-                    lunch = daily.lunch ?: u?.lunchPref,
-                    snack = daily.snack ?: u?.snackPref,
-                    dinner = daily.dinner ?: u?.dinnerPref,
+                    breakfast = daily.breakfast ?: u?.breakfastPref ?: false,
+                    lunch = daily.lunch ?: u?.lunchPref ?: false,
+                    snack = daily.snack ?: u?.snackPref ?: false,
+                    dinner = daily.dinner ?: u?.dinnerPref ?: false,
                     lunchBox = daily.lunchBox ?: false,
                     isLeave = daily.isLeave ?: u?.isLeave ?: false
                 )
@@ -82,12 +83,11 @@ class FirebaseFoodCountRepositoryImpl @Inject constructor(
     override suspend fun submitFoodCount(foodCount: FoodCount): Resource<Unit> {
         return try {
             val docId = "${foodCount.studentId}_${foodCount.date}"
+            val foodCountRef = firestore.collection(Constants.COLLECTION_FOODCOUNTS).document(docId)
             
-            // PHYSICAL PIN LOGIC:
-            // We write hard Booleans (True/False) for every field.
-            // This prevents the system from "reverting" to yesterday's data 
-            // because it removes all "Null" ambiguity for today.
-            val dailyData = hashMapOf(
+            // ATOMIC SHIELD: Use a hard Map to ensure no nulls are written
+            // and values are explicitly pinned as True or False.
+            val dailyUpdates = mutableMapOf<String, Any>(
                 "studentId" to foodCount.studentId,
                 "date" to foodCount.date,
                 "breakfast" to foodCount.isBreakfast,
@@ -99,12 +99,9 @@ class FirebaseFoodCountRepositoryImpl @Inject constructor(
                 "submittedAt" to System.currentTimeMillis()
             )
             
-            firestore.collection(Constants.COLLECTION_FOODCOUNTS)
-                .document(docId)
-                .set(dailyData) // Full set to overwrite any partial admin resets
-                .await()
+            foodCountRef.set(dailyUpdates, com.google.firebase.firestore.SetOptions.merge()).await()
                 
-            // 2. Sync sticky preferences (For tomorrow's automatic copy)
+            // 2. Sync sticky preferences in User document
             val profileUpdates = mapOf(
                 "breakfastPref" to foodCount.isBreakfast,
                 "lunchPref" to foodCount.isLunch,
@@ -112,6 +109,7 @@ class FirebaseFoodCountRepositoryImpl @Inject constructor(
                 "dinnerPref" to foodCount.isDinner,
                 "isLeave" to foodCount.isOnLeave
             )
+
             firestore.collection(Constants.COLLECTION_USERS)
                 .document(foodCount.studentId)
                 .update(profileUpdates)
@@ -173,18 +171,19 @@ class FirebaseFoodCountRepositoryImpl @Inject constructor(
 
     override suspend fun updateSingleLock(field: String, value: Boolean): Resource<Unit> {
         return try {
-            val batch = firestore.batch()
             val lockRef = firestore.collection(Constants.COLLECTION_LOCK_STATUS)
             val today = LocalDate.now().toString()
 
             val updates = mapOf(field to value)
             
-            // Use set with merge instead of update. 
-            // This ensures the operation SUCCEEDS even if the document does not exist yet.
-            batch.set(lockRef.document(Constants.ACTIVE_LOCK_ID), updates, com.google.firebase.firestore.SetOptions.merge())
-            batch.set(lockRef.document(today), updates, com.google.firebase.firestore.SetOptions.merge())
+            // ATOMIC SYNC: We use set with merge to ensure we ONLY change the targeted lock.
+            // This prevents the "Guest" Admin from being blocked or overwriting other data.
+            val activeTask = lockRef.document(Constants.ACTIVE_LOCK_ID).set(updates, com.google.firebase.firestore.SetOptions.merge())
+            val legacyTask = lockRef.document(today).set(updates, com.google.firebase.firestore.SetOptions.merge())
 
-            batch.commit().await()
+            activeTask.await()
+            legacyTask.await()
+
             Resource.Success(Unit)
         } catch (e: Exception) {
             Resource.Error(e.message ?: "Update failed")
@@ -291,19 +290,22 @@ class FirebaseFoodCountRepositoryImpl @Inject constructor(
                 if (!student.isLeave) {
                     // 1. Physical Reset of Daily Record (Today)
                     val docId = "${student.uid}_$date"
-                    val dailyReset = FoodCount(
-                        studentId = student.uid,
-                        date = date,
-                        breakfast = false,
-                        lunch = false,
-                        snack = false,
-                        dinner = false,
-                        lunchBox = false,
-                        isLeave = false
+                    
+                    // ATOMIC OVERWRITE: We use a Map to ensure fields are explicitly FALSE
+                    val dailyReset = mapOf(
+                        "studentId" to student.uid,
+                        "date" to date,
+                        "breakfast" to false,
+                        "lunch" to false,
+                        "snack" to false,
+                        "dinner" to false,
+                        "lunchBox" to false,
+                        "isLeave" to false,
+                        "submittedAt" to System.currentTimeMillis()
                     )
                     batch.set(foodCountRef.document(docId), dailyReset)
                     
-                    // 2. Physical Reset of Sticky Preferences (Tomorrow's copy)
+                    // 2. Physical Reset of Sticky Preferences (Tomorrow's copy starts from zero)
                     val stickyUpdates = mapOf(
                         "breakfastPref" to false,
                         "lunchPref" to false,
@@ -338,15 +340,16 @@ class FirebaseFoodCountRepositoryImpl @Inject constructor(
                 if (!student.isLeave) {
                     // 1. Update Daily Record
                     val docId = "${student.uid}_$date"
-                    val dailyUpdates = mutableMapOf<String, Any>(fieldName to false)
+                    val dailyUpdates = mutableMapOf<String, Any>(
+                        fieldName to false,
+                        "submittedAt" to System.currentTimeMillis()
+                    )
                     if (fieldName == "breakfast") dailyUpdates["lunchBox"] = false
+                    
                     batch.set(foodCountRef.document(docId), dailyUpdates, com.google.firebase.firestore.SetOptions.merge())
                     
                     // 2. Update Sticky Preference
                     batch.update(userRef.document(student.uid), prefName, false)
-                    if (fieldName == "breakfast") {
-                        // Optional: Reset lunch box pref if it exists? Usually it's not sticky.
-                    }
                 }
             }
 
@@ -354,6 +357,127 @@ class FirebaseFoodCountRepositoryImpl @Inject constructor(
             Resource.Success(Unit)
         } catch (e: Exception) {
             Resource.Error(e.message ?: "Meal reset failed")
+        }
+    }
+
+    override suspend fun submitFoodRequest(request: FoodRequest): Resource<Unit> {
+        return try {
+            val docId = request.id.ifEmpty { firestore.collection(Constants.COLLECTION_REQUESTS).document().id }
+            val finalRequest = request.copy(id = docId, timestamp = System.currentTimeMillis())
+            
+            firestore.collection(Constants.COLLECTION_REQUESTS)
+                .document(docId)
+                .set(finalRequest)
+                .await()
+            
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Request failed")
+        }
+    }
+
+    override fun getPendingRequests(): Flow<Resource<List<FoodRequest>>> = callbackFlow {
+        val subscription = firestore.collection(Constants.COLLECTION_REQUESTS)
+            .whereEqualTo("status", "PENDING")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(Resource.Error(error.message ?: "Error"))
+                    return@addSnapshotListener
+                }
+                val requests = snapshot?.toObjects(FoodRequest::class.java) ?: emptyList()
+                trySend(Resource.Success(requests))
+            }
+        awaitClose { subscription.remove() }
+    }
+
+    override fun getStudentRequest(studentId: String, date: String): Flow<Resource<FoodRequest?>> = callbackFlow {
+        val subscription = firestore.collection(Constants.COLLECTION_REQUESTS)
+            .whereEqualTo("studentId", studentId)
+            .whereEqualTo("date", date)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(Resource.Error(error.message ?: "Error"))
+                    return@addSnapshotListener
+                }
+                val request = snapshot?.toObjects(FoodRequest::class.java)?.firstOrNull()
+                trySend(Resource.Success(request))
+            }
+        awaitClose { subscription.remove() }
+    }
+
+    override suspend fun updateRequestStatus(
+        requestId: String,
+        status: String,
+        adminNote: String?
+    ): Resource<Unit> {
+        return try {
+            firestore.runTransaction { transaction ->
+                val requestRef = firestore.collection(Constants.COLLECTION_REQUESTS).document(requestId)
+                val request = transaction.get(requestRef).toObject(FoodRequest::class.java)
+                    ?: throw Exception("Request not found")
+
+                // Update Request Status
+                transaction.update(requestRef, mapOf(
+                    "status" to status,
+                    "adminNote" to adminNote
+                ))
+
+                if (status == "APPROVED") {
+                    val studentId = request.studentId
+                    val date = request.date
+                    
+                    // 1. Update Food Count Document
+                    val foodCountRef = firestore.collection(Constants.COLLECTION_FOODCOUNTS).document("${studentId}_$date")
+                    val foodCountUpdates = mutableMapOf<String, Any>(
+                        "isLeave" to false,
+                        "submittedAt" to System.currentTimeMillis()
+                    )
+                    if (request.breakfast) foodCountUpdates["breakfast"] = true
+                    if (request.lunch) foodCountUpdates["lunch"] = true
+                    if (request.dinner) foodCountUpdates["dinner"] = true
+                    
+                    transaction.set(foodCountRef, foodCountUpdates, com.google.firebase.firestore.SetOptions.merge())
+
+                    // 2. Update User Profile (Sticky)
+                    val userRef = firestore.collection(Constants.COLLECTION_USERS).document(studentId)
+                    val userUpdates = mutableMapOf<String, Any>(
+                        "isLeave" to false
+                    )
+                    if (request.breakfast) userUpdates["breakfastPref"] = true
+                    if (request.lunch) userUpdates["lunchPref"] = true
+                    if (request.dinner) userUpdates["dinnerPref"] = true
+                    
+                    transaction.update(userRef, userUpdates)
+                }
+            }.await()
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Update failed")
+        }
+    }
+
+    override suspend fun getAdminWhatsAppNumber(): Resource<String> {
+        return try {
+            val snapshot = firestore.collection(Constants.COLLECTION_SYSTEM)
+                .document(Constants.DOCUMENT_ADMIN_CONTACT)
+                .get()
+                .await()
+            val number = snapshot.getString("number") ?: ""
+            Resource.Success(number)
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Fetch failed")
+        }
+    }
+
+    override suspend fun updateAdminWhatsAppNumber(number: String): Resource<Unit> {
+        return try {
+            firestore.collection(Constants.COLLECTION_SYSTEM)
+                .document(Constants.DOCUMENT_ADMIN_CONTACT)
+                .set(mapOf("number" to number))
+                .await()
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Update failed")
         }
     }
 }

@@ -34,6 +34,8 @@ class FirebaseAuthRepositoryImpl @Inject constructor(
             val trimmedIdentifier = identifier.trim()
             val trimmedPass = pass.trim()
 
+            // SECURITY NOTE: Hardcoded portal credentials below are legacy and should be migrated 
+            // to Firebase Auth or a secure secret management system in the next major update.
             // 1. Check for hardcoded portals FIRST (Instant response, no network)
             when {
                 trimmedIdentifier == "prakesh" && trimmedPass == "prakesh@123" -> {
@@ -94,7 +96,7 @@ class FirebaseAuthRepositoryImpl @Inject constructor(
             if (query.isEmpty) throw Exception("User not found in system")
             
             val userDoc = query.documents[0]
-            val user = userDoc.toObject(User::class.java) ?: throw Exception("Data format error")
+            val user = userDoc.toObject(User::class.java)?.copy(uid = userDoc.id) ?: throw Exception("Data format error")
             
             // 3. Verify Password (either stored password field or roll number)
             val storedPassword = userDoc.getString("password") ?: user.rollNumber
@@ -132,6 +134,9 @@ class FirebaseAuthRepositoryImpl @Inject constructor(
     }
 
     private fun saveSession(uid: String, role: String) {
+        // SECURITY FIX: Always clear any existing stale sessions before saving a new one
+        sharedPrefs.edit().clear().apply() 
+
         sharedPrefs.edit()
             .putString("user_uid", uid)
             .putString("user_role", role)

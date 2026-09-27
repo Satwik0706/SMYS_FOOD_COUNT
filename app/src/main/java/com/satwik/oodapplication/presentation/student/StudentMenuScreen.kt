@@ -1,6 +1,8 @@
 package com.satwik.oodapplication.presentation.student
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -8,17 +10,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.satwik.oodapplication.data.model.MealInfo
 import com.satwik.oodapplication.presentation.admin.MenuManagementViewModel
+import com.satwik.oodapplication.ui.components.GlassCard
 import com.satwik.oodapplication.ui.theme.*
 import com.satwik.oodapplication.utils.Resource
 import java.time.LocalDate
@@ -29,6 +34,8 @@ import java.time.format.DateTimeFormatter
 fun StudentMenuScreen(
     viewModel: MenuManagementViewModel
 ) {
+    val isDark = isSystemInDarkTheme()
+
     // Daily at 7:40 PM, default view switches to Tomorrow
     val initialDate = remember {
         val now = LocalTime.now()
@@ -49,27 +56,30 @@ fun StudentMenuScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .navigationBarsPadding()
             .padding(16.dp)
     ) {
         Text(
             "Mess Menu", 
             style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.primary
+            fontWeight = FontWeight.Black,
+            color = if (isDark) TextWhitePrimary else TextDarkPrimary,
+            letterSpacing = (-0.5).sp
         )
         Text(
-            "Check out what's cooking in the mess",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            "Delicious daily meals prepared with care",
+            style = MaterialTheme.typography.bodySmall,
+            color = if (isDark) TextWhiteTertiary else TextDarkSecondary,
+            fontWeight = FontWeight.Medium
         )
         
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
-        // Day Navigation
-        Card(
+        // Glass Day Navigation
+        GlassCard(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            shape = RoundedCornerShape(22.dp),
+            elevation = 4.dp
         ) {
             Row(
                 modifier = Modifier.padding(8.dp),
@@ -83,20 +93,25 @@ fun StudentMenuScreen(
                     onClick = { if (canGoBack) currentDate = currentDate.minusDays(1) },
                     enabled = canGoBack
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null)
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowLeft, 
+                        contentDescription = "Previous Day",
+                        tint = if (canGoBack) PrimaryMain else (if (isDark) TextWhiteTertiary.copy(alpha = 0.3f) else TextDarkTertiary.copy(alpha = 0.3f))
+                    )
                 }
                 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = if (currentDate == LocalDate.now()) "Today" else currentDate.format(DateTimeFormatter.ofPattern("EEEE")),
                         style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        fontWeight = FontWeight.Black,
+                        color = PrimaryMain
                     )
                     Text(
-                        text = currentDate.format(DateTimeFormatter.ofPattern("MMM dd")),
+                        text = currentDate.format(DateTimeFormatter.ofPattern("MMMM dd, yyyy")),
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold
+                        fontWeight = FontWeight.Black,
+                        color = if (isDark) TextWhitePrimary else TextDarkPrimary
                     )
                 }
 
@@ -104,7 +119,11 @@ fun StudentMenuScreen(
                     onClick = { if (canGoForward) currentDate = currentDate.plusDays(1) },
                     enabled = canGoForward
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight, 
+                        contentDescription = "Next Day",
+                        tint = if (canGoForward) PrimaryMain else (if (isDark) TextWhiteTertiary.copy(alpha = 0.3f) else TextDarkTertiary.copy(alpha = 0.3f))
+                    )
                 }
             }
         }
@@ -114,24 +133,24 @@ fun StudentMenuScreen(
         when (val state = menuState) {
             is Resource.Loading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(strokeWidth = 3.dp)
+                    CircularProgressIndicator(strokeWidth = 3.dp, color = PrimaryMain)
                 }
             }
             is Resource.Success -> {
                 val menu = state.data!!
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(bottom = 24.dp)
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                    contentPadding = PaddingValues(bottom = 28.dp)
                 ) {
-                    item { MenuMealCard("Breakfast", menu.breakfast, BreakfastColor) }
-                    item { MenuMealCard("Lunch", menu.lunch, LunchColor) }
-                    item { MenuMealCard("Snacks", menu.snack, SnackColor) }
-                    item { MenuMealCard("Dinner", menu.dinner, DinnerColor) }
+                    item { MenuMealCard("Breakfast", menu.breakfast, BreakfastColor, Icons.Default.BakeryDining) }
+                    item { MenuMealCard("Lunch", menu.lunch, LunchColor, Icons.Default.Restaurant) }
+                    item { MenuMealCard("Snacks", menu.snack, SnackColor, Icons.Default.Fastfood) }
+                    item { MenuMealCard("Dinner", menu.dinner, DinnerColor, Icons.Default.DinnerDining) }
                 }
             }
             is Resource.Error -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No menu found for this date.")
+                    Text("No menu found for this date.", color = if (isDark) TextWhiteSecondary else TextDarkSecondary)
                 }
             }
         }
@@ -139,77 +158,93 @@ fun StudentMenuScreen(
 }
 
 @Composable
-fun MenuMealCard(name: String, info: MealInfo, accentColor: Color) {
-    OutlinedCard(
+fun MenuMealCard(name: String, info: MealInfo, accentColor: Color, icon: ImageVector) {
+    val isDark = isSystemInDarkTheme()
+
+    GlassCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(2.dp, Color.Black)
+        shape = RoundedCornerShape(26.dp),
+        elevation = 6.dp
     ) {
         Column {
-            // Header area with accent color
+            // Header area with accent color and subtle frosted sheen
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(accentColor.copy(alpha = 0.3f))
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                accentColor.copy(alpha = 0.22f),
+                                accentColor.copy(alpha = 0.05f)
+                            )
+                        )
+                    )
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.List,
-                        contentDescription = null, 
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        color = accentColor,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.size(42.dp),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
+                        shadowElevation = 4.dp
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(icon, null, modifier = Modifier.size(22.dp), tint = Color.White)
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
                     Text(
                         name, 
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        fontWeight = FontWeight.Black,
+                        color = if (isDark) TextWhitePrimary else TextDarkPrimary,
+                        letterSpacing = (-0.5).sp
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     Surface(
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(8.dp)
+                        color = accentColor.copy(alpha = 0.16f),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.35f))
                     ) {
                         Text(
-                            info.timing,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            info.timing.ifBlank { "Schedule set by mess" },
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                             style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            fontWeight = FontWeight.Black,
+                            color = accentColor
                         )
                     }
                 }
             }
             
             // Items area
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(20.dp)) {
                 if (info.items.isEmpty() || (info.items.size == 1 && info.items[0].isBlank())) {
                     Text(
-                        "No items listed for this meal.",
+                        "No specific items listed for this meal today.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.outline
+                        color = if (isDark) TextWhiteTertiary else TextDarkTertiary
                     )
                 } else {
                     info.items.forEach { item ->
                         if (item.isNotBlank()) {
                             Row(
-                                modifier = Modifier.padding(vertical = 4.dp),
+                                modifier = Modifier.padding(vertical = 5.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(50))
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
+                                Surface(
+                                    modifier = Modifier.size(8.dp),
+                                    shape = CircleShape,
+                                    color = accentColor,
+                                    border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.5f))
+                                ) {}
+                                Spacer(modifier = Modifier.width(14.dp))
                                 Text(
                                     item.trim(),
                                     style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isDark) TextWhitePrimary else TextDarkPrimary,
                                     fontSize = 16.sp
                                 )
                             }

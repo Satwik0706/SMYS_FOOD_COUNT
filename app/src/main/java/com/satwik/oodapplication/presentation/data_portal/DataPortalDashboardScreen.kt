@@ -7,11 +7,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -107,8 +107,14 @@ fun DataPortalDashboardScreen(
                         }
                         
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            val label = when (currentDate) {
+                                LocalDate.now() -> "Today"
+                                LocalDate.now().plusDays(1) -> "Tomorrow"
+                                LocalDate.now().minusDays(1) -> "Yesterday"
+                                else -> currentDate.format(DateTimeFormatter.ofPattern("EEEE"))
+                            }
                             Text(
-                                text = if (currentDate == LocalDate.now()) "Today" else currentDate.format(DateTimeFormatter.ofPattern("EEEE")),
+                                text = label,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -146,7 +152,7 @@ fun DataPortalDashboardScreen(
                             }
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 TotalCard("Evening (S)", report.totalSnack, MaterialTheme.colorScheme.tertiaryContainer, Modifier.weight(1f))
-                                TotalCard("Night (D)", report.totalDinner, Color(0xFFFFE082), Modifier.weight(1f))
+                                TotalCard("Night (D)", report.totalDinner, DinnerColor, Modifier.weight(1f))
                             }
                             TotalCard("Students On Leave / Out", report.totalOnLeave, MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f), Modifier.fillMaxWidth())
                         }
@@ -167,10 +173,10 @@ fun DataPortalDashboardScreen(
                     is Resource.Success -> {
                         val menu = state.data!!
                         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            MenuMealCard("Breakfast", menu.breakfast, BreakfastColor)
-                            MenuMealCard("Lunch", menu.lunch, LunchColor)
-                            MenuMealCard("Snacks", menu.snack, SnackColor)
-                            MenuMealCard("Dinner", menu.dinner, DinnerColor)
+                            MenuMealCard("Breakfast", menu.breakfast, BreakfastColor, Icons.Default.BakeryDining)
+                            MenuMealCard("Lunch", menu.lunch, LunchColor, Icons.Default.Restaurant)
+                            MenuMealCard("Snacks", menu.snack, SnackColor, Icons.Default.Fastfood)
+                            MenuMealCard("Dinner", menu.dinner, DinnerColor, Icons.Default.DinnerDining)
                         }
                     }
                     is Resource.Error -> Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {

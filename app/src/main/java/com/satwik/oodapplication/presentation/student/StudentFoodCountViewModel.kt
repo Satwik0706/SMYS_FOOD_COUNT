@@ -3,6 +3,7 @@ package com.satwik.oodapplication.presentation.student
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.satwik.oodapplication.data.model.FoodCount
+import com.satwik.oodapplication.data.model.FoodRequest
 import com.satwik.oodapplication.data.model.LockStatus
 import com.satwik.oodapplication.data.model.User
 import com.satwik.oodapplication.domain.repository.AuthRepository
@@ -32,6 +33,15 @@ class StudentFoodCountViewModel @Inject constructor(
     private val _snackStatus = MutableStateFlow<Resource<com.satwik.oodapplication.data.model.SnackStatus>>(Resource.Loading())
     val snackStatus: StateFlow<Resource<com.satwik.oodapplication.data.model.SnackStatus>> = _snackStatus
 
+    private val _studentRequest = MutableStateFlow<Resource<FoodRequest?>>(Resource.Loading())
+    val studentRequest: StateFlow<Resource<FoodRequest?>> = _studentRequest
+
+    private val _adminWhatsApp = MutableStateFlow<Resource<String>>(Resource.Loading())
+    val adminWhatsApp: StateFlow<Resource<String>> = _adminWhatsApp
+
+    private val _requestActionState = MutableStateFlow<Resource<Unit>?>(null)
+    val requestActionState: StateFlow<Resource<Unit>?> = _requestActionState
+
     fun loadData(studentId: String, date: String = LocalDate.now().toString()) {
         viewModelScope.launch {
             repository.getStudentFoodCount(studentId, date).collect {
@@ -48,6 +58,39 @@ class StudentFoodCountViewModel @Inject constructor(
                 _snackStatus.value = it
             }
         }
+        viewModelScope.launch {
+            repository.getStudentRequest(studentId, date).collect {
+                _studentRequest.value = it
+            }
+        }
+        viewModelScope.launch {
+            _adminWhatsApp.value = repository.getAdminWhatsAppNumber()
+        }
+    }
+
+    fun submitRequest(user: User, breakfast: Boolean, lunch: Boolean, dinner: Boolean) {
+        viewModelScope.launch {
+            _requestActionState.value = Resource.Loading()
+            val request = FoodRequest(
+                studentId = user.uid,
+                studentName = user.name,
+                studentYear = user.year ?: "N/A",
+                date = LocalDate.now().toString(),
+                breakfast = breakfast,
+                lunch = lunch,
+                dinner = dinner
+            )
+            val result = repository.submitFoodRequest(request)
+            _requestActionState.value = result
+            
+            if (result is Resource.Success) {
+                authRepository.logAction(user, "Submitted missed count request for ${request.date}")
+            }
+        }
+    }
+
+    fun resetRequestState() {
+        _requestActionState.value = null
     }
 
     fun toggleMeal(studentId: String, date: String, mealType: String) {

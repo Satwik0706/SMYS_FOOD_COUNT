@@ -11,14 +11,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.PersonOff
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,6 +35,8 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
+private val DATE_SWITCH_TIME = LocalTime.of(19, 40) // 7:40 PM
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainDataPortalDashboardScreen(
@@ -49,7 +48,7 @@ fun MainDataPortalDashboardScreen(
     
     val initialDate = remember {
         val now = LocalTime.now()
-        if (now.isAfter(LocalTime.of(19, 40))) {
+        if (now.isAfter(DATE_SWITCH_TIME)) {
             LocalDate.now().plusDays(1)
         } else {
             LocalDate.now()
@@ -138,12 +137,68 @@ fun MainDataPortalDashboardScreen(
                 )
             }
         ) { padding ->
-            Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+            Box(modifier = Modifier.padding(padding).navigationBarsPadding().fillMaxSize()) {
                 if (currentView == "Dashboard") {
                     DashboardView(currentDate, reportResource, menuResource, onDateChange = { currentDate = it })
                 } else {
-                    LeaveTrackerView(reportResource)
+                    LeaveTrackerView(currentDate, reportResource, onDateChange = { currentDate = it })
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun DateNavigationCard(
+    currentDate: LocalDate,
+    onDateChange: (LocalDate) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier.padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            val canGoBack = currentDate.isAfter(LocalDate.now().minusDays(5))
+            val canGoForward = currentDate.isBefore(LocalDate.now().plusDays(1))
+
+            IconButton(
+                onClick = { if (canGoBack) onDateChange(currentDate.minusDays(1)) },
+                enabled = canGoBack
+            ) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null)
+            }
+            
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                val label = when (currentDate) {
+                    LocalDate.now() -> "Today"
+                    LocalDate.now().plusDays(1) -> "Tomorrow"
+                    LocalDate.now().minusDays(1) -> "Yesterday"
+                    else -> currentDate.format(DateTimeFormatter.ofPattern("EEEE"))
+                }
+                
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = currentDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+
+            IconButton(
+                onClick = { if (canGoForward) onDateChange(currentDate.plusDays(1)) },
+                enabled = canGoForward
+            ) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
             }
         }
     }
@@ -163,48 +218,7 @@ fun DashboardView(
     ) {
         // Date Navigation
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-            ) {
-                Row(
-                    modifier = Modifier.padding(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    val canGoBack = currentDate.isAfter(LocalDate.now().minusDays(5))
-                    val canGoForward = currentDate.isBefore(LocalDate.now().plusDays(1))
-
-                    IconButton(
-                        onClick = { if (canGoBack) onDateChange(currentDate.minusDays(1)) },
-                        enabled = canGoBack
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null)
-                    }
-                    
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = if (currentDate == LocalDate.now()) "Today" else currentDate.format(DateTimeFormatter.ofPattern("EEEE")),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = currentDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-
-                    IconButton(
-                        onClick = { if (canGoForward) onDateChange(currentDate.plusDays(1)) },
-                        enabled = canGoForward
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
-                    }
-                }
-            }
+            DateNavigationCard(currentDate, onDateChange)
         }
 
         // Food Count Totals
@@ -223,7 +237,7 @@ fun DashboardView(
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TotalCard("Evening (S)", report.totalSnack, MaterialTheme.colorScheme.tertiaryContainer, Modifier.weight(1f))
-                            TotalCard("Night (D)", report.totalDinner, Color(0xFFFFE082), Modifier.weight(1f))
+                            TotalCard("Night (D)", report.totalDinner, DinnerColor, Modifier.weight(1f))
                         }
                         TotalCard("Students On Leave", report.totalOnLeave, MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f), Modifier.fillMaxWidth())
                     }
@@ -244,10 +258,10 @@ fun DashboardView(
                 is Resource.Success -> {
                     val menu = state.data!!
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        MenuMealCard("Breakfast", menu.breakfast, BreakfastColor)
-                        MenuMealCard("Lunch", menu.lunch, LunchColor)
-                        MenuMealCard("Snacks", menu.snack, SnackColor)
-                        MenuMealCard("Dinner", menu.dinner, DinnerColor)
+                        MenuMealCard("Breakfast", menu.breakfast, BreakfastColor, Icons.Default.BakeryDining)
+                        MenuMealCard("Lunch", menu.lunch, LunchColor, Icons.Default.Restaurant)
+                        MenuMealCard("Snacks", menu.snack, SnackColor, Icons.Default.Fastfood)
+                        MenuMealCard("Dinner", menu.dinner, DinnerColor, Icons.Default.DinnerDining)
                     }
                 }
                 is Resource.Error -> Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
@@ -260,9 +274,14 @@ fun DashboardView(
 
 @Composable
 fun LeaveTrackerView(
-    reportResource: Resource<com.satwik.oodapplication.presentation.admin.FoodCountReport>
+    currentDate: LocalDate,
+    reportResource: Resource<com.satwik.oodapplication.presentation.admin.FoodCountReport>,
+    onDateChange: (LocalDate) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Spacer(modifier = Modifier.height(8.dp))
+        DateNavigationCard(currentDate, onDateChange)
+        
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,

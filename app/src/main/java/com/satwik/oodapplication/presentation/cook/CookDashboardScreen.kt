@@ -69,6 +69,7 @@ fun CookDashboardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .navigationBarsPadding()
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
             contentPadding = PaddingValues(bottom = 32.dp)
